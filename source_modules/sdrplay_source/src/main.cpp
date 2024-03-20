@@ -208,6 +208,11 @@ public:
                 name += devArr[i].SerNo;
                 name += ')';
                 break;
+            case SDRPLAY_RSP1B_ID:
+                name = "RSP1B (";
+                name += devArr[i].SerNo;
+                name += ')';
+                break;
             case SDRPLAY_RSP2_ID:
                 name = "RSP2 (";
                 name += devArr[i].SerNo;
@@ -300,6 +305,9 @@ public:
         else if (openDev.hwVer == SDRPLAY_RSP1A_ID) {
             lnaSteps = 10;
         }
+        else if (openDev.hwVer == SDRPLAY_RSP1B_ID) {
+            lnaSteps = 10;
+        }
         else if (openDev.hwVer == SDRPLAY_RSP2_ID) {
             lnaSteps = 9;
         }
@@ -332,6 +340,11 @@ public:
                 // No config to load
             }
             else if (openDev.hwVer == SDRPLAY_RSP1A_ID) {
+                config.conf["devices"][selectedName]["fmmwNotch"] = false;
+                config.conf["devices"][selectedName]["dabNotch"] = false;
+                config.conf["devices"][selectedName]["biast"] = false;
+            }
+            else if (openDev.hwVer == SDRPLAY_RSP1B_ID) {
                 config.conf["devices"][selectedName]["fmmwNotch"] = false;
                 config.conf["devices"][selectedName]["dabNotch"] = false;
                 config.conf["devices"][selectedName]["biast"] = false;
@@ -418,6 +431,17 @@ public:
             // No config to load
         }
         else if (openDev.hwVer == SDRPLAY_RSP1A_ID) {
+            if (config.conf["devices"][selectedName].contains("fmmwNotch")) {
+                rsp1a_fmmwNotch = config.conf["devices"][selectedName]["fmmwNotch"];
+            }
+            if (config.conf["devices"][selectedName].contains("dabNotch")) {
+                rsp1a_dabNotch = config.conf["devices"][selectedName]["dabNotch"];
+            }
+            if (config.conf["devices"][selectedName].contains("biast")) {
+                rsp1a_biasT = config.conf["devices"][selectedName]["biast"];
+            }
+        }
+        else if (openDev.hwVer == SDRPLAY_RSP1B_ID) {
             if (config.conf["devices"][selectedName].contains("fmmwNotch")) {
                 rsp1a_fmmwNotch = config.conf["devices"][selectedName]["fmmwNotch"];
             }
@@ -574,6 +598,15 @@ private:
 
         // RSP1A Options
         if (_this->openDev.hwVer == SDRPLAY_RSP1A_ID) {
+            _this->openDevParams->devParams->rsp1aParams.rfNotchEnable = _this->rsp1a_fmmwNotch;
+            _this->openDevParams->devParams->rsp1aParams.rfDabNotchEnable = _this->rsp1a_dabNotch;
+            _this->channelParams->rsp1aTunerParams.biasTEnable = _this->rsp1a_biasT;
+            sdrplay_api_Update(_this->openDev.dev, _this->openDev.tuner, sdrplay_api_Update_Rsp1a_RfNotchControl, sdrplay_api_Update_Ext1_None);
+            sdrplay_api_Update(_this->openDev.dev, _this->openDev.tuner, sdrplay_api_Update_Rsp1a_RfDabNotchControl, sdrplay_api_Update_Ext1_None);
+            sdrplay_api_Update(_this->openDev.dev, _this->openDev.tuner, sdrplay_api_Update_Rsp1a_BiasTControl, sdrplay_api_Update_Ext1_None);
+        }
+        // RSP1B Options
+        else if (_this->openDev.hwVer == SDRPLAY_RSP1B_ID) {
             _this->openDevParams->devParams->rsp1aParams.rfNotchEnable = _this->rsp1a_fmmwNotch;
             _this->openDevParams->devParams->rsp1aParams.rfDabNotchEnable = _this->rsp1a_dabNotch;
             _this->channelParams->rsp1aTunerParams.biasTEnable = _this->rsp1a_biasT;
@@ -856,6 +889,9 @@ private:
             case SDRPLAY_RSP1A_ID:
                 _this->RSP1AMenu();
                 break;
+            case SDRPLAY_RSP1B_ID:
+                _this->RSP1BMenu();
+                break;
             case SDRPLAY_RSP2_ID:
                 _this->RSP2Menu();
                 break;
@@ -970,6 +1006,36 @@ private:
             }
             config.acquire();
             config.conf["devices"][selectedName]["biast"] = rsp1a_biasT;
+            config.release(true);
+        }
+    }
+
+    void RSP1BMenu() {
+        if (SmGui::Checkbox(CONCAT("FM/MW Notch##sdrplay_rsp1b_fmmwnotch", name), &rsp1b_fmmwNotch)) {
+            if (running) {
+                openDevParams->devParams->rsp1aParams.rfNotchEnable = rsp1b_fmmwNotch;
+                sdrplay_api_Update(openDev.dev, openDev.tuner, sdrplay_api_Update_Rsp1a_RfNotchControl, sdrplay_api_Update_Ext1_None);
+            }
+            config.acquire();
+            config.conf["devices"][selectedName]["fmmwNotch"] = rsp1b_fmmwNotch;
+            config.release(true);
+        }
+        if (SmGui::Checkbox(CONCAT("DAB Notch##sdrplay_rsp1b_dabnotch", name), &rsp1b_dabNotch)) {
+            if (running) {
+                openDevParams->devParams->rsp1aParams.rfDabNotchEnable = rsp1b_dabNotch;
+                sdrplay_api_Update(openDev.dev, openDev.tuner, sdrplay_api_Update_Rsp1a_RfDabNotchControl, sdrplay_api_Update_Ext1_None);
+            }
+            config.acquire();
+            config.conf["devices"][selectedName]["dabNotch"] = rsp1b_dabNotch;
+            config.release(true);
+        }
+        if (SmGui::Checkbox(CONCAT("Bias-T##sdrplay_rsp1b_biast", name), &rsp1b_biasT)) {
+            if (running) {
+                channelParams->rsp1aTunerParams.biasTEnable = rsp1a_biasT;
+                sdrplay_api_Update(openDev.dev, openDev.tuner, sdrplay_api_Update_Rsp1a_BiasTControl, sdrplay_api_Update_Ext1_None);
+            }
+            config.acquire();
+            config.conf["devices"][selectedName]["biast"] = rsp1b_biasT;
             config.release(true);
         }
     }
@@ -1179,6 +1245,11 @@ private:
     bool rsp1a_fmmwNotch = false;
     bool rsp1a_dabNotch = false;
     bool rsp1a_biasT = false;
+
+    // RSP1B Options
+    bool rsp1b_fmmwNotch = false;
+    bool rsp1b_dabNotch = false;
+    bool rsp1b_biasT = false;
 
     // RSP2 Options
     bool rsp2_fmmwNotch = false;
