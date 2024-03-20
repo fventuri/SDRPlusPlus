@@ -37,10 +37,10 @@ jobs:
           run: 7z x libusb.7z -olibusb_old ; rm "C:/Program Files/PothosSDR/bin/libusb-1.0.dll" ; cp "libusb_old/MS64/dll/libusb-1.0.dll" "C:/Program Files/PothosSDR/bin/" ; rm "C:/Program Files/PothosSDR/lib/libusb-1.0.lib" ; cp "libusb_old/MS64/dll/libusb-1.0.lib" "C:/Program Files/PothosSDR/lib/"
  
         - name: Download SDRPlay API
-          run: Invoke-WebRequest -Uri "https://www.sdrpp.org/SDRplay.zip" -OutFile ${{runner.workspace}}/SDRplay.zip
+          run: Invoke-WebRequest -Uri "https://www.sdrplay.com/software/SDRplay_RSP_API-Windows-3.14.exe" -OutFile ${{runner.workspace}}/SDRplay_RSP_API-Windows-3.14.exe
 
         - name: Install SDRPlay API
-          run: 7z x ${{runner.workspace}}/SDRplay.zip -o"C:/Program Files/"
+          run: choco install --no-progress innoextract ; innoextract -s ${{runner.workspace}}/SDRplay_RSP_API-Windows-3.14.exe -I "app\API" -d "C:/Program Files" ; mv "C:/Program Files/app" "C:/Program Files/SDRplay"
 
         - name: Download codec2
           run: git clone https://github.com/AlexandreRouma/codec2
@@ -96,8 +96,11 @@ jobs:
         - name: Update brew repositories
           run: brew update
 
+        - name: Upgrade python 3.11 and 3.12
+          run: rm /usr/local/bin/{2to3-3.11,idle3.11,pydoc3.11,python3.11,python3.11-config}; brew upgrade python@3.11; rm /usr/local/bin/{2to3,2to3-3.12,idle3,idle3.12,pydoc3,pydoc3.12,python3,python3-config,python3.12,python3.12-config}; brew upgrade python@3.12
+
         - name: Install dependencies
-          run: brew install pkg-config libusb fftw glfw airspy airspyhf portaudio hackrf libbladerf codec2 zstd autoconf automake libtool && pip3 install mako
+          run: brew install pkg-config libusb fftw glfw airspy airspyhf portaudio hackrf libbladerf codec2 zstd autoconf automake libtool && pip3 install mako --break-system-packages
 
         - name: Install volk
           run: git clone --recursive https://github.com/gnuradio/volk && cd volk && mkdir build && cd build && cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
@@ -151,7 +154,7 @@ jobs:
           run: brew update
 
         - name: Install dependencies
-          run: brew install pkg-config libusb fftw glfw airspy airspyhf portaudio hackrf libbladerf codec2 zstd autoconf automake libtool && pip3 install mako
+          run: brew install pkg-config libusb fftw glfw airspy airspyhf portaudio hackrf libbladerf codec2 zstd autoconf automake libtool && pip3 install mako --break-system-packages
 
         - name: Install volk
           run: git clone --recursive https://github.com/gnuradio/volk && cd volk && mkdir build && cd build && cmake -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_BUILD_TYPE=Release .. && make -j3 && sudo make install && cd ../../
@@ -346,33 +349,6 @@ jobs:
               name: sdrpp_ubuntu_mantic_amd64
               path: ${{runner.workspace}}/sdrpp_debian_amd64.deb
 
-    build_raspios_bullseye_armhf:
-        runs-on: ARM
-
-        steps:
-        - uses: actions/checkout@v4
-
-        - name: Create Build Environment
-          run: rm -rf ${{runner.workspace}}/build && cmake -E make_directory ${{runner.workspace}}/build
-        
-        - name: Prepare CMake
-          working-directory: ${{runner.workspace}}/build
-          run: cmake $GITHUB_WORKSPACE -DOPT_BUILD_BLADERF_SOURCE=ON -DOPT_BUILD_LIMESDR_SOURCE=ON -DOPT_BUILD_SDRPLAY_SOURCE=ON -DOPT_BUILD_NEW_PORTAUDIO_SINK=ON -DOPT_BUILD_M17_DECODER=ON -DOPT_BUILD_USRP_SOURCE=ON -DOPT_BUILD_PERSEUS_SOURCE=ON
-
-        - name: Build
-          working-directory: ${{runner.workspace}}/build
-          run: make VERBOSE=1 -j3
-
-        - name: Create Dev Archive
-          working-directory: ${{runner.workspace}}
-          run: sh $GITHUB_WORKSPACE/make_debian_package.sh ./build 'libfftw3-dev, libglfw3-dev, libvolk2-dev, librtaudio-dev' && mv sdrpp_debian_amd64.deb sdrpp_debian_armhf.deb
-        
-        - name: Save Deb Archive
-          uses: actions/upload-artifact@v4
-          with:
-              name: sdrpp_raspios_bullseye_armhf
-              path: ${{runner.workspace}}/sdrpp_debian_armhf.deb
-
     build_android:
         runs-on: ubuntu-latest
 
@@ -401,7 +377,7 @@ jobs:
               path: ${{runner.workspace}}/sdrpp.apk
 
     create_full_archive:
-        needs: ['build_windows', 'build_macos_intel', 'build_macos_arm', 'build_debian_buster', 'build_debian_bullseye', 'build_debian_bookworm', 'build_debian_sid', 'build_ubuntu_focal', 'build_ubuntu_jammy', 'build_ubuntu_mantic', 'build_raspios_bullseye_armhf', 'build_android']
+        needs: ['build_windows', 'build_macos_intel', 'build_macos_arm', 'build_debian_buster', 'build_debian_bullseye', 'build_debian_bookworm', 'build_debian_sid', 'build_ubuntu_focal', 'build_ubuntu_jammy', 'build_ubuntu_mantic', 'build_android']
         runs-on: ubuntu-latest
 
         steps:
@@ -421,7 +397,6 @@ jobs:
             mv sdrpp_ubuntu_focal_amd64/sdrpp_debian_amd64.deb sdrpp_all/sdrpp_ubuntu_focal_amd64.deb &&
             mv sdrpp_ubuntu_jammy_amd64/sdrpp_debian_amd64.deb sdrpp_all/sdrpp_ubuntu_jammy_amd64.deb &&
             mv sdrpp_ubuntu_mantic_amd64/sdrpp_debian_amd64.deb sdrpp_all/sdrpp_ubuntu_mantic_amd64.deb &&
-            mv sdrpp_raspios_bullseye_armhf/sdrpp_debian_armhf.deb sdrpp_all/sdrpp_raspios_bullseye_armhf.deb &&
             mv sdrpp_android/sdrpp.apk sdrpp_all/sdrpp.apk
 
         - uses: actions/upload-artifact@v4
@@ -429,17 +404,18 @@ jobs:
             name: sdrpp_all
             path: sdrpp_all/
 
-    update_nightly_release:
+    update_latest_release:
         needs: [create_full_archive]
         runs-on: ubuntu-latest
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/rsp1b' }}
 
         steps:
         - name: Download All Builds
           uses: actions/download-artifact@v4
 
-        - name: Update Nightly
-          run: gh release upload nightly sdrpp_all/* -R ${{github.repository}} --clobber
+        - name: Update Latest
+          run: gh release upload latest sdrpp_all/* -R ${{github.repository}} --clobber
 
     check_spelling:
         runs-on: ubuntu-latest
